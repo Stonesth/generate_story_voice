@@ -4,7 +4,7 @@ Try to generate a story.
 Try to clone my voice.
 Try to read the story with my voice.
 
-python -m venv venv
+python3 -m venv venv
 
 <!-- to activate the test environment -->
 
@@ -19,8 +19,15 @@ Windows
 
 pip install --upgrade pip
 
+python3.9 generate_voice4.py
+
 <!-- For generate_voice.py -->
 pip install gtts
+
+<!-- this version need to have a specific python version 3.9 due to TTS -->
+brew install python@3.9
+python3.9 -m venv venv
+source venv/bin/activate
 
 <!-- For generate_voice2.py -->
 pip install torch

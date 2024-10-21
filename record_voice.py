@@ -1,6 +1,5 @@
 import pyaudio
 import wave
-import keyboard
 
 # Paramètres d'enregistrement
 FORMAT = pyaudio.paInt16
@@ -20,13 +19,12 @@ print("Enregistrement en cours... Appuyez sur ENTER pour terminer.")
 
 frames = []
 
-# Enregistrer jusqu'à ce que ENTER soit pressé
-while True:
-    data = stream.read(CHUNK)
-    frames.append(data)
-    if keyboard.is_pressed('enter'):
-        print("Enregistrement terminé.")
-        break
+try:
+    while True:
+        data = stream.read(CHUNK)
+        frames.append(data)
+except KeyboardInterrupt:
+    print("Enregistrement terminé.")
 
 # Arrêter et fermer le flux
 stream.stop_stream()
@@ -40,4 +38,4 @@ with wave.open(OUTPUT_FILE, 'wb') as wf:
     wf.setframerate(RATE)
     wf.writeframes(b''.join(frames))
 
-print(f"Enregistrement sauvegardé sous {OUTPUT_FILE}")
+print(f"Enregistrement sauvegardé dans {OUTPUT_FILE}")

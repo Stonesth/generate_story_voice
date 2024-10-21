@@ -57,7 +57,7 @@ for text, lang, temp_file in temp_files:
     tts.tts_to_file(text, speaker_wav=speaker_wav, language=lang, file_path=temp_file)
 
 # Concaténer les fichiers audio en un seul fichier
-output_path = "voice/output.wav"
+output_path = "voice/output2.wav"
 data = []
 for _, _, temp_file in temp_files:
     temp_data, samplerate = sf.read(temp_file)

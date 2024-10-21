@@ -4,6 +4,10 @@ Try to generate a story.
 Try to clone my voice.
 Try to read the story with my voice.
 
+<!-- Documentation -->
+https://github.com/coqui-ai/TTS/discussions/3369
+
+
 python3 -m venv venv
 
 <!-- to activate the test environment -->

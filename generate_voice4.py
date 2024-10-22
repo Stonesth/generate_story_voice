@@ -11,7 +11,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Lire le texte à partir du fichier
-with open('./story/story_2.txt', 'r', encoding='utf-8') as file:
+with open('./story/story_6.txt', 'r', encoding='utf-8') as file:
     text = file.read()
 
 # Diviser le texte en phrases toutes les 3 phrases
@@ -29,7 +29,7 @@ for i, sentence in enumerate(sentences):
         tts.tts_to_file(
             text=sentence.strip(),
             file_path=f"voice/output4_{i}.wav",
-            speaker_wav=["voice/audio.wav"],
+            speaker_wav=["voice/Pierre_story_5.wav"],
             language="fr",
             split_sentences=True
         )

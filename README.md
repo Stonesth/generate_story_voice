@@ -6,7 +6,7 @@ Try to read the story with my voice.
 
 <!-- Documentation -->
 https://github.com/coqui-ai/TTS/discussions/3369
-
+https://docs.coqui.ai/en/latest/models/xtts.html
 
 python3 -m venv venv
 

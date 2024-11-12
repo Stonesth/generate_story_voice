@@ -158,7 +158,7 @@ for i, sentence in enumerate(sentences):
     with open(f"story_output/sentence_{i}.txt", 'w', encoding='utf-8') as file:
         file.write(sentence.strip())
 
-# Initialiser l'instance TTS avec un modèle français
+# Initialiser l'instance TTS avec un modèle multilingue
 tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2")
 
 # Convertir chaque phrase en audio et mise du texte dans un fichier séparé

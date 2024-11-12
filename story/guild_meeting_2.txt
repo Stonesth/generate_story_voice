@@ -1,0 +1,27 @@
+Hello everyone! Today, I'm going to talk about the tools I use on a daily basis to optimize my work and explore new technologies. I'm passionate about automation and technologies related to artificial intelligence (AI) and large language models (LLM), and I've developed several applications to help me with my daily tasks.
+
+Let's start with time management. I've created a Python application that allows me to track exactly how much time I spend on each task. This is an essential tool for me, as it gives me an overview of my productivity and helps me plan my days better. The application is simple to use: I start a timer when I begin a task and stop it when I finish. The application records these data and provides me with detailed reports on my time usage.
+
+Now, let's talk about project management. Like many of you, I use JIRA to track tickets and tasks. To make it easier to log time spent on each ticket, I've developed another Python program. This program automatically logs the time I've spent on a ticket in JIRA. It synchronizes with my time-tracking application and updates JIRA accordingly. This saves me a lot of time and ensures that my time reports in JIRA are always up-to-date and accurate.
+
+In my work, I often encounter incidents that require creating JIRA tickets. To streamline this process, I've developed a third Python program. This program automatically creates a JIRA ticket based on the incident details. It fills in the relevant fields, assigns the ticket to the right person, and sets the priority based on predefined criteria. This allows me to respond more quickly to incidents and ensure consistent follow-up.
+
+Another tool I've developed and use frequently is a Python program that converts text I input into an audio recording with my own voice. This is particularly useful for creating quick voice notes or audio explanations without having to record them manually. The program uses advanced text-to-speech techniques to reproduce my voice naturally.
+
+Speaking of content creation, I also use an application called "Pinokio" to run "FaceFusion 3.0". This is a powerful tool for video generation, especially for creating deepfakes or videos with modified faces. While this tool is very powerful, it's essential to use it in an ethical and responsible manner.
+
+For final video editing, I use CapCut. This is a versatile video editor that allows me to assemble all the elements of my videos, add effects, transitions, and refine the final result. CapCut is particularly useful for creating engaging videos for social media or professional presentations.
+
+As you can see, I have a genuine passion for automation and technologies related to AI and LLM. The tools I've developed and use daily are just the tip of the iceberg. I'm constantly looking for new ways to optimize my workflows and explore the possibilities offered by AI.
+
+Artificial intelligence and large language models are revolutionizing the way we work and interact with technology. LLMs, for example, can understand and generate natural language in a way that was unimaginable just a few years ago. They can help us with tasks ranging from content writing to complex data analysis.
+
+I'm particularly fascinated by the practical applications of these technologies. For instance, using AI to automate repetitive tasks, improve decision-making, or create more personalized user experiences. The possibilities are truly endless.
+
+However, it's essential to note that using AI and advanced technologies also raises important ethical questions. It's crucial to use these tools responsibly, respecting individuals' privacy and being aware of potential biases inherent in these systems.
+
+In conclusion, automation and AI are exciting fields that offer enormous possibilities for improving our efficiency and creativity. The tools I've developed are just a small glimpse into what's possible. I encourage you all to explore these technologies, experiment, and find innovative ways to integrate them into your daily work.
+
+Remember, the key is to stay curious, learn continuously, and adopt an ethical approach when using these powerful technologies. The future of AI and automation is promising, and we all have a role to play in shaping how these technologies will shape our world.
+
+Thank you for listening to my presentation on the tools I use and my passion for automation and AI. I hope this has inspired you to explore these exciting fields further. Feel free to ask me any questions if you'd like to know more about any of the tools or concepts I mentioned. Together, we can push the boundaries of what's possible with technology!

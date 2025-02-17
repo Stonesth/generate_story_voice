@@ -10,10 +10,15 @@ from TTS.api import TTS
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-VOICE_OF_ME = "voice/recorded_voice_Dorota.wav"
-STORY_FILE = "./story/guild_meeting_2.txt"
+VOICE_OF_ME = "voice/recorded_voice_Pierre.wav"
 STORY_FILE_OUTPUT = "./story_output/guild_meeting_2_output.txt"
-OUTPUT_FILE = "voice/guild_meeting_2.wav"
+
+# STORY_FILE = "./story/guild_meeting_2.txt"
+# OUTPUT_FILE = "voice/guild_meeting_2.wav"
+STORY_FILE = "./story_output/sentence__04.txt"
+OUTPUT_FILE = "story_output/sentence__04.wav"
+OUTPUT_NAME = "_Pierre__03_1"
+
 OUTPUT_LANGUAGE = "en"
 
 # Définir une variable pour contrôler la suppression des fichiers temporaires
@@ -49,8 +54,8 @@ with open(STORY_FILE, 'r', encoding='utf-8') as file:
     text = file.read()
 
 # Supprimer les retours à la ligne et les espaces en trop
-text = re.sub(r'\n', ' ', text)
-text = re.sub(r'\s+', ' ', text)
+# text = re.sub(r'\n', ' ', text)
+# text = re.sub(r'\s+', ' ', text)
 
 # # Supprimer les espaces avant les ponctuations
 # text = re.sub(r'\s([.,!?])', r'\1', text)
@@ -167,7 +172,7 @@ for i, sentence in enumerate(sentences):
         # generate speech by cloning a voice using default settings
         tts.tts_to_file(
             text=sentence.strip(),
-            file_path=f"story_output/sentence_{i}.wav",
+            file_path=f"story_output/sentence_{i}"+OUTPUT_NAME+".wav",
             speaker_wav=[VOICE_OF_ME],
             language=OUTPUT_LANGUAGE,
             split_sentences=True
@@ -178,7 +183,7 @@ combined_audio = []
 
 for i in range(len(sentences)):
     if sentences[i].strip():  # Ignorer les phrases vides
-        data, samplerate = sf.read(f"story_output/sentence_{i}.wav")
+        data, samplerate = sf.read(f"story_output/sentence_{i}"+OUTPUT_NAME+".wav")
         combined_audio.append(data)
 
 # Combiner tous les fichiers audio en un seul tableau numpy
@@ -193,7 +198,7 @@ if DELETE_TEMP_FILES:
     # Supprimer les fichiers temporaires après lecture
     for i in range(len(sentences)):
         if sentences[i].strip():  # Ignorer les phrases vides
-            file_path = f"story_output/sentence_{i}.wav"
+            file_path = f"story_output/sentence_{i}"+OUTPUT_NAME+".wav"
             os.remove(file_path)
 
     # Supprimer les fichiers temporaires après lecture

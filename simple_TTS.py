@@ -135,7 +135,7 @@ def get_model_name(lang: int, en_model: int = 0, fr_model: int = 0) -> str:
             0: "tts_models/en/ljspeech/tacotron2-DDC",
             1: "tts_models/en/ljspeech/glow-tts",
             2: "tts_models/en/ljspeech/speedy-speech",
-            3: "tts_models/en/vctk/vits",
+            3: "tts_models/en/vctk/fast_pitch",  # Changé pour FastPitch
             4: "tts_models/en/jenny/jenny"
         }
     }
@@ -162,7 +162,7 @@ def get_model_suffix(lang: int, en_model: int = 0, fr_model: int = 0, speaker: s
             0: "_en_tacotron",
             1: "_en_glowtts",
             2: "_en_speedyspeech",
-            3: f"_en_vctk_{speaker}" if speaker else "_en_vctk",
+            3: "_en_fastpitch",  # Changé pour FastPitch
             4: "_en_jenny"
         }
     }
@@ -206,29 +206,22 @@ def initialize_tts(args, device: str):
         else:
             tts = TTS(model_name).to(device)
     else:  # Anglais (lang 0 ou 2)
-        if args.lang == 2 and args.en_model == 3:  # FastPitch VCTK
+        if args.lang == 2 and args.en_model == 3:  # VITS VCTK
+            model_name = "tts_models/en/vctk/vits"
             tts = TTS(model_name).to(device)
             print("\nSpeakers disponibles pour VCTK :")
-            # Liste des voix préférées
-            preferred_voices = [
-                "VCTK_p232 (homme, bien)",
-                "VCTK_p273 (femme, bien)",
-                "VCTK_p278 (femme, bien)",
-                "VCTK_p279 (homme, bien)",
-                "VCTK_p304 (femme, voix préférée)"
-            ]
-            print("\nVoix recommandées :")
-            for voice in preferred_voices:
-                print(voice)
+            available_speakers = [f"VCTK_{s}" for s in tts.speakers if s != "ED\n"]
+            print(available_speakers)
             
             # Convertir VCTK_pXXX en pXXX pour le modèle
             if args.speaker.startswith("VCTK_"):
-                speaker = args.speaker[5:]
+                speaker = args.speaker[5:]  # Enlève "VCTK_"
             else:
                 speaker = args.speaker
                 
-            if not speaker.startswith("p") or not speaker[1:].isdigit():
-                print(f"Erreur : Format de speaker invalide. Utilisez le format VCTK_pXXX")
+            if speaker not in tts.speakers:
+                print(f"Erreur : Speaker {args.speaker} non trouvé. Speakers disponibles :")
+                print(available_speakers)
                 sys.exit(1)
         else:
             tts = TTS(model_name).to(device)

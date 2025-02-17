@@ -14,49 +14,102 @@ pip install --upgrade pip
 pip install TTS
 ```
 
-## Utilisation
+## Commandes disponibles
 
-Le script prend en charge différents modèles et voix. Voici les principales options :
+### 1. Modèles Anglais (--lang 0)
 
-### Modèles anglais (--lang 0 ou 2)
-
-1. VITS (voix féminine) :
 ```bash
-python Simple_TTS.py --lang 2 --en-model 1 --text-file text_en.txt --use-cuda
+# Tacotron2-DDC (par défaut)
+python Simple_TTS.py --lang 0 --en-model 0 --text-file text_en.txt --use-cuda
+
+# Glow-TTS
+python Simple_TTS.py --lang 0 --en-model 1 --text-file text_en.txt --use-cuda
+
+# Speedy-Speech
+python Simple_TTS.py --lang 0 --en-model 2 --text-file text_en.txt --use-cuda
+
+# VITS
+python Simple_TTS.py --lang 0 --en-model 3 --text-file text_en.txt --use-cuda
+
+# Jenny
+python Simple_TTS.py --lang 0 --en-model 4 --text-file text_en.txt --use-cuda
 ```
 
-2. Tacotron2 (voix féminine) :
+### 2. Modèles Français (--lang 1)
+
 ```bash
-python Simple_TTS.py --lang 2 --en-model 2 --text-file text_en.txt --use-cuda
+# VITS CSS10 (par défaut)
+python Simple_TTS.py --lang 1 --fr-model 0 --text-file text_fr.txt --use-cuda
+
+# Tacotron2-DDC CSS10
+python Simple_TTS.py --lang 1 --fr-model 1 --text-file text_fr.txt --use-cuda
+
+# YourTTS
+python Simple_TTS.py --lang 1 --fr-model 2 --text-file text_fr.txt --use-cuda --yourtts-speaker male-en-2
+
+# YourTTS avec speaker spécifique
+python Simple_TTS.py --lang 1 --fr-model 3 --text-file text_fr.txt --use-cuda --yourtts-speaker female-en-5
+
+# XTTS v2 (nécessite un fichier audio de référence)
+python Simple_TTS.py --lang 1 --fr-model 4 --text-file text_fr.txt --use-cuda --reference-audio voice.wav
 ```
 
-### Voix VCTK recommandées (--lang 2)
+### 3. Voix VCTK (--lang 2)
 
-Le modèle VCTK offre plusieurs voix de haute qualité :
-
+#### Voix recommandées :
 - VCTK_p232 (homme, bien)
 - VCTK_p273 (femme, bien)
 - VCTK_p278 (femme, bien)
 - VCTK_p279 (homme, bien)
 - VCTK_p304 (femme, voix préférée)
 
-Pour utiliser une voix VCTK spécifique :
 ```bash
+# Utilisation des voix VCTK
 python Simple_TTS.py --lang 2 --en-model 3 --text-file text_en.txt --use-cuda --speaker VCTK_p304
 ```
 
-### Modèle français (--lang 1)
+### 4. Options supplémentaires
 
-Pour générer de l'audio en français avec le modèle VITS CSS10 :
+#### Vitesse de parole
 ```bash
-python Simple_TTS.py --lang 1 --text-file text_fr.txt --use-cuda
+# Plus lent (>1.0)
+python Simple_TTS.py --lang 1 --text-file text_fr.txt --use-cuda --length-scale 1.2
+
+# Plus rapide (<1.0)
+python Simple_TTS.py --lang 1 --text-file text_fr.txt --use-cuda --length-scale 0.8
 ```
 
-## Options
+#### Speakers YourTTS disponibles
+- male-en-2
+- female-en-5
+- female-pt-4
+- male-pt-3
 
-- `--lang` : Langue (0: Anglais, 1: Français, 2: Anglais avec VCTK)
-- `--text-file` : Chemin vers le fichier texte à lire
-- `--use-cuda` : Utiliser CUDA si disponible
-- `--en-model` : Modèle anglais (0: Tacotron2-DDC, 1: VITS, 2: Tacotron2, 3: VCTK)
-- `--speaker` : ID du speaker pour VCTK (ex: VCTK_p304)
-- `--length-scale` : Vitesse de la parole (< 1.0 plus rapide, > 1.0 plus lent)
+## Interface Graphique
+
+Une interface graphique est disponible via le script `Simple_TTS_GUI.py`. Pour l'utiliser :
+
+```bash
+# Installer PyQt6
+pip install PyQt6
+
+# Lancer l'interface graphique
+python Simple_TTS_GUI.py
+```
+
+L'interface graphique offre :
+- Sélection de la langue
+- Choix du modèle
+- Sélection des voix VCTK
+- Support CUDA
+- Chargement de fichiers texte
+- Zone de texte intégrée
+- Suivi de la progression
+- Sélection du dossier de sortie pour les fichiers audio générés
+
+## Notes importantes
+
+1. Les fichiers générés seront sauvegardés dans le dossier `story_output/`
+2. Le paramètre `--use-cuda` est optionnel et n'utilise CUDA que s'il est disponible
+3. Les fichiers texte doivent être encodés en UTF-8
+4. Pour XTTS v2, le fichier audio de référence est obligatoire

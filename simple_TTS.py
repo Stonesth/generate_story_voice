@@ -168,24 +168,17 @@ def get_model_suffix(lang: int, en_model: int = 0, fr_model: int = 0, speaker: s
     }
     return suffixes[lang].get(en_model if lang != 1 else fr_model, "_unknown")
 
-def initialize_tts(args, device: str):
-    """Initialise le modèle TTS avec les paramètres appropriés."""
+def initialize_tts(args, device):
+    """
+    Initialise le modèle TTS en fonction des arguments.
+    """
     model_name = get_model_name(args.lang, args.en_model, args.fr_model)
-    print(f"Chargement du modèle : {model_name}")
     
-    speaker = None
-    language = None
-    speaker_wav = None
-    
-    if args.lang == 1:  # Français
-        if args.fr_model == 3:  # YourTTS
-            tts = TTS(model_name).to(device)
-            print("\nSpeakers disponibles pour YourTTS :")
-            print(tts.speakers)
-            speaker = args.yourtts_speaker
-            language = "fr-fr"
-        elif args.fr_model == 4:  # XTTS v2
-            print("Utilisation de XTTS v2")
+    if model_name:
+        print(f"Chargement du modèle : {model_name}")
+        
+        # Configuration pour les différents modèles
+        if args.fr_model == 4:  # XTTS v2
             if not args.reference_audio:
                 print("Erreur : XTTS v2 nécessite un fichier audio de référence (--reference-audio)")
                 sys.exit(1)
@@ -203,30 +196,44 @@ def initialize_tts(args, device: str):
             speaker = None
             language = "fr"
             speaker_wav = args.reference_audio
-        else:
-            tts = TTS(model_name).to(device)
-    else:  # Anglais (lang 0 ou 2)
-        if args.lang == 2 and args.en_model == 3:  # VITS VCTK
-            model_name = "tts_models/en/vctk/vits"
-            tts = TTS(model_name).to(device)
-            print("\nSpeakers disponibles pour VCTK :")
-            available_speakers = [f"VCTK_{s}" for s in tts.speakers if s != "ED\n"]
-            print(available_speakers)
-            
-            # Convertir VCTK_pXXX en pXXX pour le modèle
-            if args.speaker.startswith("VCTK_"):
-                speaker = args.speaker[5:]  # Enlève "VCTK_"
+        elif args.lang == 1:  # Français
+            if args.fr_model == 3:  # YourTTS
+                tts = TTS(model_name).to(device)
+                print("\nSpeakers disponibles pour YourTTS :")
+                print(tts.speakers)
+                speaker = args.yourtts_speaker
+                language = "fr-fr"
             else:
-                speaker = args.speaker
+                tts = TTS(model_name).to(device)
+        else:  # Anglais (VCTK)
+            if args.lang == 2 and args.en_model == 0:  # VITS VCTK
+                tts = TTS(model_name).to(device)
+                print("\nSpeakers disponibles pour VCTK :")
+                # Liste des voix préférées
+                preferred_voices = {
+                    "p232": "Voix masculine, bien articulée",
+                    "p273": "Voix féminine, bien articulée",
+                    "p278": "Voix féminine, bien articulée",
+                    "p279": "Voix masculine, bien articulée",
+                    "p304": "Voix féminine, préférée"
+                }
+                print("\nVoix recommandées :")
+                for speaker_id, description in preferred_voices.items():
+                    print(f"{speaker_id} - {description}")
                 
-            if speaker not in tts.speakers:
-                print(f"Erreur : Speaker {args.speaker} non trouvé. Speakers disponibles :")
-                print(available_speakers)
-                sys.exit(1)
-        else:
-            tts = TTS(model_name).to(device)
-    
-    return tts, speaker, language, speaker_wav
+                # Convertir VCTK_pXXX en pXXX pour le modèle
+                if args.speaker.startswith("VCTK_"):
+                    speaker = args.speaker[5:]  # Enlève le préfixe "VCTK_"
+                else:
+                    speaker = args.speaker
+                
+                if not speaker.startswith("p") or not speaker[1:].isdigit():
+                    print(f"Erreur : Format de speaker invalide. Utilisez le format VCTK_pXXX")
+                    sys.exit(1)
+            else:
+                tts = TTS(model_name).to(device)
+        
+        return tts, speaker, language, speaker_wav
 
 def main():
     """Fonction principale du script."""

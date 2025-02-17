@@ -26,12 +26,23 @@ class TTSWorker(QThread):
         self.params = params
 
     def run(self):
+        """Exécute la génération TTS dans un thread séparé."""
         try:
+            # Affichage des paramètres sélectionnés
+            self.progress.emit("\n=== Configuration ===")
+            self.progress.emit(f"Langue : {self.params['lang']}")
+            self.progress.emit(f"Modèle : {self.get_model_name()}")
+            if self.params['speaker']:
+                self.progress.emit(f"Speaker : {self.params['speaker']}")
+            if self.params.get('reference_audio'):
+                self.progress.emit(f"Fichier audio de référence : {self.params['reference_audio']}")
+            self.progress.emit(f"Texte à synthétiser : {self.params['text']}")
+            self.progress.emit("=" * 20 + "\n")
+
             # Configuration du device
             device = "cuda" if torch.cuda.is_available() and self.params['use_cuda'] else "cpu"
             self.progress.emit(f"Utilisation du device : {device}")
-
-            # Obtention du modèle
+            
             model_name = self.get_model_name()
             self.progress.emit(f"Chargement du modèle : {model_name}")
 
@@ -57,24 +68,43 @@ class TTSWorker(QThread):
                 if self.params['fr_model'] == 4:  # XTTS v2
                     kwargs['speaker_wav'] = self.params.get('reference_audio')
                     kwargs['language'] = 'fr'
+                    self.progress.emit(f"Configuration XTTS v2 - Langue: fr, Fichier audio: {self.params.get('reference_audio')}")
                 elif self.params['fr_model'] in [2, 3]:  # YourTTS
                     kwargs['speaker'] = 'male-en-2' if self.params['fr_model'] == 2 else 'female-en-5'
-                    kwargs['language'] = 'fr'
+                    kwargs['language'] = 'fr-fr'
+                    self.progress.emit(f"Configuration YourTTS - Langue: fr-fr, Speaker: {'male-en-2' if self.params['fr_model'] == 2 else 'female-en-5'}")
             elif self.params['lang'] == 2:  # VCTK
                 speaker = self.params['speaker']
                 if speaker.startswith("VCTK_"):
                     speaker = speaker[5:]
                 kwargs['speaker'] = speaker
+                self.progress.emit(f"Configuration VCTK - Speaker: {speaker}")
+            
+            # Affichage de la commande équivalente
+            cmd = f"python Simple_TTS.py --lang {self.params['lang']} "
+            if self.params['lang'] == 1:
+                cmd += f"--fr-model {self.params['fr_model']} "
+            else:
+                cmd += f"--en-model {self.params['en_model']} "
+            if self.params['speaker']:
+                cmd += f"--speaker {self.params['speaker']} "
+            if self.params.get('reference_audio'):
+                cmd += f"--reference-audio {self.params['reference_audio']} "
+            if self.params['use_cuda']:
+                cmd += "--use-cuda "
+            self.progress.emit("\nCommande équivalente :")
+            self.progress.emit(cmd + "\n")
 
-            # Génération de l'audio
+            # Génération audio
+            self.progress.emit("Génération audio en cours...")
             output_path = os.path.join(self.params['output_dir'], f"output{self.get_model_suffix()}.wav")
+            tts.tts_to_file(
+                text=self.params['text'],
+                file_path=output_path,
+                **kwargs
+            )
             
-            # Appel TTS avec les paramètres appropriés
-            tts.tts_to_file(text=self.params['text'], 
-                           file_path=output_path,
-                           **kwargs)
-            
-            self.progress.emit(f"Audio généré : {output_path}")
+            self.progress.emit(f"Fichier audio généré avec succès : {output_path}")
             self.finished.emit()
 
         except Exception as e:
@@ -82,55 +112,64 @@ class TTSWorker(QThread):
 
     def get_model_name(self):
         """Retourne le nom du modèle en fonction de la langue choisie."""
-        models = {
-            0: {  # Anglais
-                0: "tts_models/en/ljspeech/tacotron2",  
-                1: "tts_models/en/ljspeech/glow-tts",
-                2: "tts_models/en/ljspeech/speedy-speech",
-                3: "tts_models/en/vctk/vits",
-                4: "tts_models/en/jenny/jenny"
-            },
-            1: {  # Français
-                0: "tts_models/fr/css10/vits",
-                1: "tts_models/fr/css10/tacotron2-DDC",
-                2: "tts_models/multilingual/multi-dataset/your_tts",  
-                3: "tts_models/multilingual/multi-dataset/your_tts",  
-                4: "tts_models/multilingual/multi-dataset/xtts_v2"    
-            },
-            2: {  # Anglais avec VCTK
-                3: "tts_models/en/vctk/vits"  
-            }
-        }
-        return models[self.params['lang']].get(
-            self.params['en_model'] if self.params['lang'] != 1 else self.params['fr_model'],
-            models[self.params['lang']][0]
-        )
+        lang_idx = self.params['lang']
+        model_idx = self.params['en_model'] if lang_idx != 1 else self.params['fr_model']
+        
+        if lang_idx == 0:  # Anglais
+            models = [
+                "tts_models/en/jenny/jenny",
+                "tts_models/en/ljspeech/tacotron2-DDC",
+                "tts_models/en/ljspeech/glow-tts",
+                "tts_models/en/ljspeech/speedy-speech",
+                "tts_models/en/ljspeech/neural_hmm"
+            ]
+        elif lang_idx == 1:  # Français
+            models = [
+                "tts_models/fr/css10/tacotron2",
+                "tts_models/fr/css10/glow-tts",
+                "tts_models/multilingual/multi-dataset/your_tts",
+                "tts_models/multilingual/multi-dataset/your_tts",
+                "tts_models/multilingual/multi-dataset/xtts_v2"
+            ]
+        else:  # Anglais (VCTK)
+            models = [
+                "tts_models/en/vctk/vits"
+            ]
+        
+        return models[model_idx]
 
     def get_model_suffix(self):
         """Retourne un suffixe distinctif pour le nom du fichier."""
         suffixes = {
             0: {  # Anglais
-                0: "_en_tacotron2",
-                1: "_en_glowtts",
-                2: "_en_speedyspeech",
-                3: "_en_fastpitch",
-                4: "_en_jenny"
+                0: "_en_jenny",
+                1: "_en_tacotron2",
+                2: "_en_glowtts",
+                3: "_en_speedyspeech",
+                4: "_en_neuralhmm"
             },
             1: {  # Français
-                0: "_fr_vits",
-                1: "_fr_tacotron2",
+                0: "_fr_tacotron2",
+                1: "_fr_glowtts",
                 2: "_fr_yourtts",
                 3: "_fr_yourtts",
                 4: "_fr_xtts_v2"
             },
             2: {  # Anglais avec VCTK
-                3: "_en_vctk_vits"  
+                0: "_vctk_en"  # Le speaker sera ajouté après
             }
         }
-        return suffixes[self.params['lang']].get(
+        
+        suffix = suffixes[self.params['lang']].get(
             self.params['en_model'] if self.params['lang'] != 1 else self.params['fr_model'],
             "_unknown"
         )
+        
+        # Ajouter le speaker pour VCTK
+        if self.params['lang'] == 2:
+            suffix += f"_{self.params['speaker']}"
+            
+        return suffix
 
 class CustomTextEdit(QTextEdit):
     def __init__(self, parent=None):
@@ -203,9 +242,9 @@ class MainWindow(QMainWindow):
             "VCTK_p279 (homme, bien)",
             "VCTK_p304 (femme, voix préférée)"
         ])
-        self.speaker_combo.setEnabled(False)
         speaker_layout.addWidget(speaker_label)
         speaker_layout.addWidget(self.speaker_combo)
+        self.speaker_combo.setEnabled(False)
         layout.addLayout(speaker_layout)
 
         # XTTS Reference Audio
@@ -268,30 +307,42 @@ class MainWindow(QMainWindow):
         self.model_combo.clear()
         if lang_index == 0:  # Anglais
             self.model_combo.addItems([
-                "Tacotron2",
+                "Jenny (voix féminine)",
+                "Tacotron2-DDC",
                 "Glow-TTS",
                 "Speedy-Speech",
-                "VITS",
-                "Jenny"
+                "Neural HMM"
             ])
         elif lang_index == 1:  # Français
             self.model_combo.addItems([
-                "VITS",
-                "Tacotron2-DDC",
+                "Tacotron2",
+                "Glow-TTS",
                 "YourTTS (voix masculine)",
                 "YourTTS (voix féminine)",
                 "XTTS v2"
             ])
-        else:  # VCTK
-            self.model_combo.addItems(["VITS"])
-            self.model_combo.setCurrentIndex(0)
+        else:  # Anglais (VCTK)
+            self.model_combo.addItems([
+                "VITS"
+            ])
+            # Mise à jour de la liste des speakers VCTK avec leurs descriptions
+            self.speaker_combo.clear()
+            self.speaker_combo.addItems([
+                "VCTK_p232 (homme)",
+                "VCTK_p273 (femme)",
+                "VCTK_p278 (femme)",
+                "VCTK_p279 (homme)",
+                "VCTK_p304 (femme)"
+            ])
 
-    def on_lang_changed(self, index):
+        self.update_ui_elements()
+
+    def on_lang_changed(self, lang_index):
         """Gère le changement de langue."""
-        self.update_model_list(index)
-        self.speaker_combo.setEnabled(index == 2)  # Active VCTK speakers uniquement pour VCTK
+        self.update_model_list(lang_index)
+        self.speaker_combo.setEnabled(lang_index == 2)  # Active VCTK speakers uniquement pour VCTK
         # Active le choix du fichier audio de référence uniquement pour XTTS v2
-        self.ref_audio_path.setEnabled(index == 1 and self.model_combo.currentIndex() == 4)
+        self.ref_audio_path.setEnabled(lang_index == 1 and self.model_combo.currentIndex() == 4)
 
     def on_model_changed(self, index):
         """Gère le changement de modèle."""
@@ -336,7 +387,7 @@ class MainWindow(QMainWindow):
             'lang': self.lang_combo.currentIndex(),
             'en_model': self.model_combo.currentIndex(),
             'fr_model': self.model_combo.currentIndex(),
-            'speaker': self.speaker_combo.currentText() if self.speaker_combo.isEnabled() else None,
+            'speaker': self.get_speaker(),
             'use_cuda': self.cuda_check.isChecked(),
             'output_dir': self.output_dir
         }
@@ -378,6 +429,17 @@ class MainWindow(QMainWindow):
         self.generate_button.setEnabled(True)
         self.cancel_button.setEnabled(False)
         self.progress_bar.setRange(0, 100)
+
+    def get_speaker(self):
+        """Retourne l'ID du speaker sans la description."""
+        speaker = self.speaker_combo.currentText()
+        if self.lang_combo.currentIndex() == 2:  # VCTK
+            # Extraire uniquement l'ID du speaker (VCTK_pXXX) de la description
+            return speaker.split(" ")[0]
+        return speaker
+
+    def update_ui_elements(self):
+        pass
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)

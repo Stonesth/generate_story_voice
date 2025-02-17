@@ -1,34 +1,37 @@
 """
 Script de synthèse vocale utilisant différents modèles pour générer de l'audio en français et en anglais.
+Supporte les modèles : Tacotron2, Glow-TTS, VITS, YourTTS et XTTS v2.
 """
 
 import os
+import sys
 import argparse
+from pathlib import Path
+
+# Imports PyTorch
 import torch
 import torch.nn as nn
+from torch.serialization import add_safe_globals
+
+# Imports TTS
 from TTS.api import TTS
 from TTS.utils.radam import RAdam
-from torch.serialization import add_safe_globals, safe_globals
-from collections import defaultdict, OrderedDict
-import numpy
 from TTS.tts.configs.shared_configs import BaseTTSConfig
 from TTS.tts.configs.xtts_config import XttsConfig
-from TTS.tts.models.base_tts import BaseTTS
 from TTS.tts.models.xtts import XttsAudioConfig, Xtts, XttsArgs
-from TTS.tts.configs.bark_config import BarkConfig
+from TTS.tts.models.base_tts import BaseTTS
 from TTS.config.shared_configs import BaseDatasetConfig
-from pathlib import Path
-import importlib.util
-import sys
-import shutil
-import numpy as np
 
-# Ajouter les globals sécurisés pour PyTorch 2.6
-add_safe_globals([
+# Imports NumPy
+import numpy as np
+from collections import defaultdict, OrderedDict
+
+# Configuration des globals sécurisés pour PyTorch 2.6
+SAFE_CLASSES = [
     RAdam,
     defaultdict,
     OrderedDict,
-    numpy.ndarray,
+    np.ndarray,
     torch.nn.Parameter,
     torch._utils._rebuild_tensor_v2,
     torch.Tensor,
@@ -39,7 +42,7 @@ add_safe_globals([
     float,
     str,
     bool,
-    type(None),  # NoneType
+    type(None),
     BaseTTSConfig,
     XttsConfig,
     XttsAudioConfig,
@@ -53,37 +56,10 @@ add_safe_globals([
     np.generic,
     BaseTTS,
     nn.Module,
-    BarkConfig,
     BaseDatasetConfig,
-])
+]
 
-# Configurer le chemin de cache pour Bark
-cache_dir = str(Path.home() / ".cache" / "bark_tts")
-os.environ["SUNO_USE_SMALL_MODELS"] = "1"
-os.environ["SUNO_OFFLOAD_CPU"] = "1"
-os.environ["BARK_CACHE_DIR"] = cache_dir
-
-# Créer le dossier de cache
-os.makedirs(cache_dir, exist_ok=True)
-
-# Copier les fichiers de modèle si nécessaire
-def setup_bark_cache():
-    try:
-        bark_dir = Path(cache_dir) / "bark"
-        os.makedirs(bark_dir, exist_ok=True)
-        
-        # Créer les sous-dossiers nécessaires
-        for subdir in ["text_2.0", "coarse_2.0", "fine_2.0"]:
-            os.makedirs(bark_dir / subdir, exist_ok=True)
-        
-        print(f"Cache Bark configuré dans : {cache_dir}")
-        return True
-    except Exception as e:
-        print(f"Erreur lors de la configuration du cache Bark : {e}")
-        return False
-
-# Configurer le cache Bark
-setup_bark_cache()
+add_safe_globals(SAFE_CLASSES)
 
 def read_text_file(file_path: str) -> str | None:
     """
@@ -105,194 +81,116 @@ def read_text_file(file_path: str) -> str | None:
         print(f"Erreur lors de la lecture du fichier : {str(e)}")
         return None
 
-def setup_argparse() -> argparse.ArgumentParser:
-    """
-    Configure et retourne le parseur d'arguments.
+def get_parser():
+    """Retourne le parseur d'arguments configuré."""
+    parser = argparse.ArgumentParser(description="Générer un fichier audio à partir d'un texte")
     
-    Returns:
-        Le parseur d'arguments configuré
-    """
-    parser = argparse.ArgumentParser(
-        description='Générer de l\'audio à partir de texte en français ou en anglais'
-    )
-    parser.add_argument(
-        '--lang', 
-        type=int, 
-        choices=[0, 1], 
-        default=0,
-        help='0 pour anglais, 1 pour français'
-    )
-    parser.add_argument(
-        '--en-model',
-        type=int,
-        choices=[0, 1, 2, 3, 4],
-        default=0,
-        help='Modèle anglais à utiliser : 0 pour Tacotron2-DDC, 1 pour Glow-TTS, 2 pour Speedy-Speech, 3 pour VITS, 4 pour Jenny'
-    )
-    parser.add_argument(
-        '--fr-model',
-        type=int,
-        choices=[0, 1, 2, 3, 4, 5],
-        default=0,
-        help='Modèle français à utiliser : 0 pour VITS, 1 pour Tacotron2-DDC, 2 pour YourTTS, 3 pour YourTTS avec speaker, 4 pour Bark, 5 pour XTTS v2'
-    )
-    parser.add_argument(
-        '--text-file', 
-        type=str, 
-        required=True,
-        help='Chemin vers le fichier texte à lire'
-    )
-    parser.add_argument(
-        '--yourtts-speaker',
-        type=str,
-        choices=['male-en-2', 'female-en-5', 'female-pt-4', 'male-pt-3'],
-        default='male-en-2',
-        help='Speaker à utiliser pour YourTTS (uniquement pour --fr-model 3)'
-    )
-    parser.add_argument(
-        '--bark-speaker',
-        type=str,
-        choices=['v2/fr_speaker_0', 'v2/fr_speaker_1', 'v2/fr_speaker_2', 'v2/fr_speaker_3', 'v2/fr_speaker_4', 'v2/fr_speaker_5'],
-        default='v2/fr_speaker_3',
-        help='Speaker à utiliser pour Bark (uniquement pour --fr-model 4)'
-    )
-    parser.add_argument(
-        '--reference-audio',
-        type=str,
-        help='Fichier audio de référence pour XTTS v2'
-    )
-    parser.add_argument(
-        '--use-cuda',
-        action='store_true',
-        help='Utiliser CUDA si disponible'
-    )
-    parser.add_argument(
-        '--speaker',
-        type=str,
-        help='ID du speaker pour les modèles multi-voix (ex: p229 pour une voix masculine)',
-        default='p229'
-    )
-    parser.add_argument(
-        '--length-scale',
-        type=float,
-        default=1.0,
-        help='Contrôle la vitesse de la parole (< 1.0 plus rapide, > 1.0 plus lent)'
-    )
-    parser.add_argument(
-        '--vocoder',
-        type=str,
-        choices=['fullband-melgan', 'hifigan_v2'],
-        default='fullband-melgan',
-        help='Vocoder à utiliser pour la synthèse'
-    )
+    # Arguments principaux
+    parser.add_argument('--lang', type=int, choices=[0, 1, 2], default=0,
+                       help='Langue (0: Anglais, 1: Français, 2: Anglais avec VCTK)')
+    parser.add_argument('--text-file', type=str, required=True,
+                       help='Chemin vers le fichier texte à lire')
+    parser.add_argument('--use-cuda', action='store_true',
+                       help='Utiliser CUDA si disponible')
+    
+    # Modèles et voix
+    parser.add_argument('--en-model', type=int, choices=range(5), default=0,
+                       help='Modèle anglais (0: Tacotron2-DDC, 1: Glow-TTS, 2: Speedy-Speech, 3: VITS, 4: Jenny)')
+    parser.add_argument('--fr-model', type=int, choices=range(5), default=0,
+                       help='Modèle français (0: VITS, 1: Tacotron2-DDC, 2: YourTTS, 3: YourTTS+speaker, 4: XTTS v2)')
+    
+    # Options spécifiques aux modèles
+    parser.add_argument('--yourtts-speaker', type=str, default='male-en-2',
+                       choices=['male-en-2', 'female-en-5', 'female-pt-4', 'male-pt-3'],
+                       help='Speaker pour YourTTS')
+    parser.add_argument('--reference-audio', type=str,
+                       help='Fichier audio de référence pour XTTS v2')
+    parser.add_argument('--speaker', type=str, default='VCTK_p229',
+                       help='ID du speaker pour VCTK (ex: VCTK_p229, VCTK_p304)')
+    
+    # Paramètres de synthèse
+    parser.add_argument('--length-scale', type=float, default=1.0,
+                       help='Vitesse de la parole (< 1.0 plus rapide, > 1.0 plus lent)')
+    
     return parser
 
 def get_model_name(lang: int, en_model: int = 0, fr_model: int = 0) -> str:
-    """
-    Retourne le nom du modèle en fonction de la langue choisie.
-    
-    Args:
-        lang: 0 pour anglais, 1 pour français
-        en_model: 0 pour Tacotron2-DDC, 1 pour Glow-TTS, 2 pour Speedy-Speech, 3 pour VITS, 4 pour Jenny
-        fr_model: 0 pour VITS, 1 pour Tacotron2-DDC, 2 pour YourTTS, 3 pour YourTTS avec speaker, 4 pour Bark, 5 pour XTTS v2
-        
-    Returns:
-        Le nom du modèle à utiliser
-    """
-    if lang == 0:  # Anglais
-        models = {
+    """Retourne le nom du modèle en fonction de la langue choisie."""
+    models = {
+        0: {  # Anglais
+            0: "tts_models/en/ljspeech/tacotron2-DDC",
+            1: "tts_models/en/ljspeech/glow-tts",
+            2: "tts_models/en/ljspeech/speedy-speech",
+            3: "tts_models/en/vctk/vits",
+            4: "tts_models/en/jenny/jenny"
+        },
+        1: {  # Français
+            0: "tts_models/fr/css10/vits",
+            1: "tts_models/fr/css10/tacotron2-DDC",
+            2: "tts_models/multilingual/multi-dataset/your_tts",
+            3: "tts_models/multilingual/multi-dataset/your_tts",
+            4: "tts_models/multilingual/multi-dataset/xtts_v2"
+        },
+        2: {  # Anglais avec VCTK
             0: "tts_models/en/ljspeech/tacotron2-DDC",
             1: "tts_models/en/ljspeech/glow-tts",
             2: "tts_models/en/ljspeech/speedy-speech",
             3: "tts_models/en/vctk/vits",
             4: "tts_models/en/jenny/jenny"
         }
-        return models.get(en_model, models[0])
-    else:  # Français
-        models = {
-            0: "tts_models/fr/css10/vits",
-            1: "tts_models/fr/css10/tacotron2-DDC",
-            2: "tts_models/multilingual/multi-dataset/your_tts",
-            3: "tts_models/multilingual/multi-dataset/your_tts",
-            4: "tts_models/multilingual/multi-dataset/bark",
-            5: "tts_models/multilingual/multi-dataset/xtts_v2"
-        }
-        return models.get(fr_model, models[0])
+    }
+    return models[lang].get(en_model if lang != 1 else fr_model, models[lang][0])
 
 def get_model_suffix(lang: int, en_model: int = 0, fr_model: int = 0, speaker: str = None) -> str:
-    """
-    Retourne un suffixe distinctif pour le nom du fichier.
-    
-    Args:
-        lang: 0 pour anglais, 1 pour français
-        en_model: 0 pour Tacotron2-DDC, 1 pour Glow-TTS, 2 pour Speedy-Speech, 3 pour VITS, 4 pour Jenny
-        fr_model: 0 pour VITS, 1 pour Tacotron2-DDC, 2 pour YourTTS, 3 pour YourTTS avec speaker, 4 pour Bark, 5 pour XTTS v2
-        speaker: ID du speaker pour VCTK
-        
-    Returns:
-        Un suffixe distinctif pour le fichier
-    """
-    if lang == 0:  # Anglais
-        if en_model == 0:
-            return "_en_tacotron"
-        elif en_model == 1:
-            return "_en_glowtts"
-        elif en_model == 2:
-            return "_en_speedyspeech"
-        elif en_model == 3:
-            return "_en_vits"
-        elif en_model == 4:
-            return "_en_jenny"
-    else:  # Français
-        if fr_model == 0:
-            return "_fr_vits"
-        elif fr_model == 1:
-            return "_fr_tacotron"
-        elif fr_model == 2:
-            return "_fr_yourtts"
-        elif fr_model == 3:
-            return "_fr_yourtts"
-        elif fr_model == 4:
-            return "_fr_bark"
-        elif fr_model == 5:
-            return "_fr_xtts_v2"
+    """Retourne un suffixe distinctif pour le nom du fichier."""
+    suffixes = {
+        0: {  # Anglais
+            0: "_en_tacotron",
+            1: "_en_glowtts",
+            2: "_en_speedyspeech",
+            3: "_en_vits",
+            4: "_en_jenny"
+        },
+        1: {  # Français
+            0: "_fr_vits",
+            1: "_fr_tacotron",
+            2: "_fr_yourtts",
+            3: "_fr_yourtts",
+            4: "_fr_xtts_v2"
+        },
+        2: {  # Anglais avec VCTK
+            0: "_en_tacotron",
+            1: "_en_glowtts",
+            2: "_en_speedyspeech",
+            3: f"_en_vctk_{speaker}" if speaker else "_en_vctk",
+            4: "_en_jenny"
+        }
+    }
+    return suffixes[lang].get(en_model if lang != 1 else fr_model, "_unknown")
 
-def main():
-    """Fonction principale du script."""
-    # Parser les arguments
-    parser = setup_argparse()
-    args = parser.parse_args()
-    
-    # Vérifier si CUDA est disponible
-    device = "cuda" if torch.cuda.is_available() and args.use_cuda else "cpu"
-    print(f"Utilisation du device : {device}")
-    
-    # Obtenir le nom du modèle
+def initialize_tts(args, device: str):
+    """Initialise le modèle TTS avec les paramètres appropriés."""
     model_name = get_model_name(args.lang, args.en_model, args.fr_model)
     print(f"Chargement du modèle : {model_name}")
     
-    # Initialiser le modèle TTS avec les options appropriées
-    if args.lang == 1:
+    speaker = None
+    language = None
+    speaker_wav = None
+    
+    if args.lang == 1:  # Français
         if args.fr_model == 3:  # YourTTS
             tts = TTS(model_name).to(device)
             print("\nSpeakers disponibles pour YourTTS :")
             print(tts.speakers)
             speaker = args.yourtts_speaker
             language = "fr-fr"
-        elif args.fr_model == 4:  # Bark
-            print(f"Utilisation du cache Bark dans : {cache_dir}")
-            tts = TTS(model_name).to(device)
-            print("\nSpeakers disponibles pour Bark :")
-            print(tts.speakers)
-            speaker = args.bark_speaker
-            language = "fr"
-        elif args.fr_model == 5:  # XTTS v2
+        elif args.fr_model == 4:  # XTTS v2
             print("Utilisation de XTTS v2")
             if not args.reference_audio:
                 print("Erreur : XTTS v2 nécessite un fichier audio de référence (--reference-audio)")
                 sys.exit(1)
-                
-            # Patch la fonction load_fsspec pour désactiver weights_only
+            
+            # Patch temporaire pour PyTorch 2.6
             original_load = torch.load
             def patched_load(*args, **kwargs):
                 kwargs['weights_only'] = False
@@ -300,45 +198,68 @@ def main():
             torch.load = patched_load
             
             tts = TTS(model_name).to(device)
-            # Restaurer la fonction originale
-            torch.load = original_load
+            torch.load = original_load  # Restauration
+            
             speaker = None
             language = "fr"
             speaker_wav = args.reference_audio
         else:
             tts = TTS(model_name).to(device)
-            speaker = None
-            language = None
-            speaker_wav = None
-    else:
-        tts = TTS(model_name).to(device)
-        speaker = None
-        language = None
-        speaker_wav = None
+    else:  # Anglais (lang 0 ou 2)
+        if args.lang == 2 and args.en_model == 3:  # FastPitch VCTK
+            tts = TTS(model_name).to(device)
+            print("\nSpeakers disponibles pour VCTK :")
+            # Liste des voix préférées
+            preferred_voices = [
+                "VCTK_p232 (homme, bien)",
+                "VCTK_p273 (femme, bien)",
+                "VCTK_p278 (femme, bien)",
+                "VCTK_p279 (homme, bien)",
+                "VCTK_p304 (femme, voix préférée)"
+            ]
+            print("\nVoix recommandées :")
+            for voice in preferred_voices:
+                print(voice)
+            
+            # Convertir VCTK_pXXX en pXXX pour le modèle
+            if args.speaker.startswith("VCTK_"):
+                speaker = args.speaker[5:]
+            else:
+                speaker = args.speaker
+                
+            if not speaker.startswith("p") or not speaker[1:].isdigit():
+                print(f"Erreur : Format de speaker invalide. Utilisez le format VCTK_pXXX")
+                sys.exit(1)
+        else:
+            tts = TTS(model_name).to(device)
     
-    # Si c'est le modèle VCTK, afficher les speakers disponibles
-    if args.en_model == 3:
-        print("\nSpeakers disponibles :")
-        print(tts.speakers)
+    return tts, speaker, language, speaker_wav
+
+def main():
+    """Fonction principale du script."""
+    args = get_parser().parse_args()
     
-    # Configurer les options spécifiques pour les différents modèles
-    if args.lang == 1:
-        if args.fr_model == 2:  # Tacotron2-DDC
-            tts.synthesizer.length_scale = args.length_scale
-        elif args.fr_model == 3:  # YourTTS
-            tts.synthesizer.length_scale = args.length_scale
+    # Configuration du device
+    device = "cuda" if torch.cuda.is_available() and args.use_cuda else "cpu"
+    print(f"Utilisation du device : {device}")
     
-    # Lire le contenu du fichier texte
+    # Initialisation du modèle
+    tts, speaker, language, speaker_wav = initialize_tts(args, device)
+    
+    # Configuration spécifique pour certains modèles
+    if args.lang == 1 and args.fr_model in [2, 3]:
+        tts.synthesizer.length_scale = args.length_scale
+    
+    # Lecture du texte
     text = read_text_file(args.text_file)
     if text is None:
-        print(f"Erreur : Impossible de lire le fichier {args.text_file}")
         return
     
-    # Générer le nom du fichier de sortie
+    # Génération de l'audio
     output_path = f"story_output/output{get_model_suffix(args.lang, args.en_model, args.fr_model, speaker)}.wav"
+    os.makedirs("story_output", exist_ok=True)
     
-    # Générer l'audio
-    if args.fr_model == 5:  # XTTS v2
+    if args.fr_model == 4:  # XTTS v2
         tts.tts_to_file(text=text, file_path=output_path, speaker_wav=speaker_wav, language=language)
     else:
         tts.tts_to_file(text=text, file_path=output_path, speaker=speaker, language=language)

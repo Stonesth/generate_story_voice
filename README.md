@@ -33,8 +33,13 @@ Pour le modèle Tacotron2 (voix féminine) :
 python Simple_TTS.py --lang 2 --en-model 2 --text-file text_en.txt --use-cuda
 
 Pour le modèle VCTK FastPitch avec différentes voix :
-# Voix VCTK_p304 (celle que vous préférez)
-python Simple_TTS.py --lang 2 --en-model 3 --text-file text_en.txt --use-cuda --speaker VCTK_p304
+### Voix recommandées pour VCTK (--lang 2) :
+
+- VCTK_p232 (homme, bien)
+- VCTK_p273 (femme, bien)
+- VCTK_p278 (femme, bien)
+- VCTK_p279 (homme, bien)
+- VCTK_p304 (femme, voix préférée)
 
 # Autres voix masculines interessantes
 python Simple_TTS.py --lang 2 --en-model 3 --text-file text_en.txt --use-cuda --speaker VCTK_p374
